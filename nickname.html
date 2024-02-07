@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web3blog</title>
+    <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+</head>
+<body>
+    <h2>MetaMask Wallet Connection</h2>
+    <button id="connectButton">Connect to MetaMask</button>
+    <p id="account"></p>
+    <div id="nicknameSection" style="display: none;">
+        <input type="text" id="nicknameInput" placeholder="Enter your nickname">
+        <button id="setNicknameButton">Set Nickname</button>
+    </div>
+
+    <script>
+        const connectButton = document.getElementById('connectButton');
+        const accountParagraph = document.getElementById('account');
+        const nicknameSection = document.getElementById('nicknameSection');
+        const setNicknameButton = document.getElementById('setNicknameButton');
+        let accounts;
+
+        connectButton.addEventListener('click', async () => {
+    if (typeof window.ethereum !== 'undefined') {
+        try {
+            // Request account access
+            accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const account = accounts[0];
+            accountParagraph.innerText = `Connected Account: ${account}`;
+
+            // Check network after account access is granted
+            const networkId = await web3.eth.net.getId();
+            accountParagraph.innerText += `\nConnected to network ID: ${networkId}`;
+            nicknameSection.style.display = 'block';
+
+        } catch (error) {
+            console.error('Error connecting to MetaMask', error);
+            accountParagraph.innerText = `Error: ${error.message}`;
+        }
+    } else {
+        accountParagraph.innerText = "MetaMask is not installed!";
+    }
+});
+
+
+
+
+        const web3 = new Web3(window.ethereum);
+        const contractABI = []; // 将ABI内容复制到这里
+        const contractAddress = '0x7833a4e729EA09cb5786A33aCF93017A77F98114'; // 你的合约地址
+        const blogContract = new web3.eth.Contract(contractABI, contractAddress);
+
+        setNicknameButton.addEventListener('click', async () => {
+            const nickname = document.getElementById('nicknameInput').value;
+            if (nickname.trim() === '') {
+                alert('Nickname cannot be empty.');
+                return;
+            }
+
+            try {
+                await blogContract.methods.setNickname(nickname).send({ from: accounts[0] });
+                alert('Nickname set successfully!');
+                // 调用getNickname方法，传入当前账户地址
+                const newNickname = await blogContract.methods.getNickname(accounts[0]).call();
+                // 显示昵称
+                accountParagraph.innerText += `\nNickname: ${newNickname}`;
+            } catch (error) {
+                console.error('Error setting nickname', error);
+                alert(`Error: ${error.message}`);
+            }
+        });
+
+    </script>
+</body>
+</html>

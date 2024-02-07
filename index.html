@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web3blog</title>
+  <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+  <style>
+	body {
+	  font-family: 'Arial', sans-serif;
+	  line-height: 1.6;
+	  margin: 0;
+	  padding: 0;
+	  background: #f4f4f4;
+	  color: #333;
+	}
+
+	#postsSection h2 {
+    	color: green;
+	}
+
+	#blogSection h2 {
+    	color: green;
+	}
+
+  
+	header, footer {
+	  background: #333;
+	  color: #fff;
+	  padding: 20px 0;
+	  text-align: center;
+	}
+  
+	.container {
+	  width: 80%;
+	  margin: auto;
+	  overflow: hidden;
+	  padding: 0 20px;
+	}
+  
+	button {
+	  background: #5cb85c;
+	  color: #fff;
+	  border: 0;
+	  padding: 10px 20px;
+	  margin: 10px 0;
+	  border-radius: 5px;
+	  cursor: pointer;
+	}
+  
+	button:hover {
+	  background: #4cae4c;
+	}
+  
+	#nicknameSection, #blogSection, #postsSection {
+	  background: #fff;
+	  padding: 20px;
+	  margin-bottom: 20px;
+	  border-radius: 8px;
+	  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	}
+  
+	h2 {
+	  color: #333;
+	}
+  
+	input[type="text"], textarea {
+	  width: calc(100% - 22px);
+	  padding: 10px;
+	  margin-bottom: 10px;
+	  border: 1px solid #ddd;
+	  border-radius: 5px;
+	}
+  
+	.post, .comment {
+	  background: #fff;
+	  padding: 15px;
+	  margin-bottom: 15px;
+	  border-radius: 5px;
+	  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	}
+  
+	.post h3 {
+	  margin-top: 0;
+	}
+  
+	.comment {
+	  background: #f9f9f9;
+	  border-left: 5px solid #5cb85c;
+	  margin-top: 10px;
+	}
+  
+	.commentsSection {
+	  margin-top: 20px;
+	  border-top: 1px solid #eee;
+	  padding-top: 15px;
+	}
+  </style>
+  
+</head>
+
+<body>
+  <h2>MetaMask Wallet Connection</h2>
+  <button id="connectButton">Connect to MetaMask</button>
+  <p id="account"></p>
+  <div id="nicknameSection" style="display: none;">
+    <input type="text" id="nicknameInput" placeholder="Enter your nickname">
+    <button id="setNicknameButton">Set Nickname</button>
+  </div>
+  <div id="blogSection" style="display: none;">
+    <h2>发布博客</h2>
+    <input type="text" id="postTitle" placeholder="Post Title">
+    <textarea id="postContent" placeholder="Post Content"></textarea>
+    <button id="createPostButton">Create Post</button>
+  </div>
+  <!-- 博客帖子列表 -->
+  <div id="postsSection" style="display: none;">
+    <h2>博客帖子列表</h2>
+    <div id="postsList">
+      <!-- 博客帖子将会在这里显示 -->
+    </div>
+  </div>
+
+  <!-- <div id="editComment">
+    <h2>edit this Post</h2>
+    <input type="text" id="postTitle" placeholder="Post Title">
+    <textarea id="postContent" placeholder="Post Content"></textarea>
+    <button id="createPostButton">Save Post</button>
+  </div> -->
+
+  <script>
+    const connectButton = document.getElementById('connectButton');
+    const accountParagraph = document.getElementById('account');
+    const nicknameSection = document.getElementById('nicknameSection');
+    const blogSection = document.getElementById('blogSection');
+    const postsSection = document.getElementById('postsSection');
+    const setNicknameButton = document.getElementById('setNicknameButton');
+    const createPostButton = document.getElementById('createPostButton');
+    let accounts;
+
+    connectButton.addEventListener('click', async () => {
+  if (typeof window.ethereum !== 'undefined') {
+    try {
+      // Request account access
+      accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      console.log('Connected accounts:', accounts);
+      const account = accounts[0];
+      accountParagraph.innerText = `Connected Account: ${web3.utils.toChecksumAddress(account)}`;
+      web3.eth.defaultAccount = web3.utils.toChecksumAddress(account);
+      // Check network after account access is granted
+      const networkId = await web3.eth.net.getId();
+      accountParagraph.innerText += `\nConnected to network ID: ${networkId}`;
+
+      // Check if connected to the Sepolia network (Make sure this ID is correct for Sepolia)
+      const sepoliaNetworkId = '11155111'; // Replace with actual Sepolia network ID if different
+      if (networkId.toString() !== sepoliaNetworkId) {
+        alert('Please switch to the Sepolia network in MetaMask and try again.');
+        return;
+      }
+
+      try {
+        // Attempt to get the nickname to check if it's already set
+        const nickname = await blogContract.methods.getNickname(account).call();
+        accountParagraph.innerText += `\nNickname: ${nickname}`;
+        blogSection.style.display = 'block';
+        postsSection.style.display = 'block';
+        await displayPosts(); // Call to display posts
+      } catch (nicknameError) {
+        if (/No nickname set for this address/.test(nicknameError.message)) {
+          // Nickname is not set, show the nickname section
+          nicknameSection.style.display = 'block';
+        } else {
+          // Some other error occurred
+          console.error('Error fetching nickname for account:', account, nicknameError);
+        }
+      }
+    } catch (error) {
+      console.error('Error connecting to MetaMask', error);
+      accountParagraph.innerText = `Error: ${error.message}`;
+    }
+  } else {
+    accountParagraph.innerText = "MetaMask is not installed!";
+  }
+});
+
+
+
+    const web3 = new Web3(window.ethereum);
+    const contractABI = [
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "uint32",
+				"name": "id",
+				"type": "uint32"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint32",
+				"name": "postId",
+				"type": "uint32"
+			},
+			{
+				"indexed": false,
+				"internalType": "string",
+				"name": "content",
+				"type": "string"
+			},
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "author",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint32",
+				"name": "createdAt",
+				"type": "uint32"
+			}
+		],
+		"name": "CommentAdded",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "uint32",
+				"name": "id",
+				"type": "uint32"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint32",
+				"name": "postId",
+				"type": "uint32"
+			},
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "author",
+				"type": "address"
+			}
+		],
+		"name": "CommentDeleted",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "uint32",
+				"name": "id",
+				"type": "uint32"
+			},
+			{
+				"indexed": false,
+				"internalType": "string",
+				"name": "content",
+				"type": "string"
+			},
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "author",
+				"type": "address"
+			}
+		],
+		"name": "CommentEdited",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "string",
+				"name": "nickname",
+				"type": "string"
+			}
+		],
+		"name": "NicknameSet",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "uint32",
+				"name": "id",
+				"type": "uint32"
+			},
+			{
+				"indexed": false,
+				"internalType": "string",
+				"name": "title",
+				"type": "string"
+			},
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "author",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint32",
+				"name": "createdAt",
+				"type": "uint32"
+			}
+		],
+		"name": "PostCreated",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "uint32",
+				"name": "id",
+				"type": "uint32"
+			},
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "author",
+				"type": "address"
+			}
+		],
+		"name": "PostDeleted",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "uint32",
+				"name": "id",
+				"type": "uint32"
+			},
+			{
+				"indexed": false,
+				"internalType": "string",
+				"name": "title",
+				"type": "string"
+			},
+			{
+				"indexed": false,
+				"internalType": "address",
+				"name": "author",
+				"type": "address"
+			}
+		],
+		"name": "PostEdited",
+		"type": "event"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint32",
+				"name": "_postId",
+				"type": "uint32"
+			},
+			{
+				"internalType": "string",
+				"name": "_content",
+				"type": "string"
+			}
+		],
+		"name": "addComment",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "comments",
+		"outputs": [
+			{
+				"internalType": "uint32",
+				"name": "id",
+				"type": "uint32"
+			},
+			{
+				"internalType": "uint32",
+				"name": "postId",
+				"type": "uint32"
+			},
+			{
+				"internalType": "string",
+				"name": "content",
+				"type": "string"
+			},
+			{
+				"internalType": "address",
+				"name": "author",
+				"type": "address"
+			},
+			{
+				"internalType": "uint32",
+				"name": "createdAt",
+				"type": "uint32"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint32",
+				"name": "",
+				"type": "uint32"
+			},
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "commentsByPostId",
+		"outputs": [
+			{
+				"internalType": "uint32",
+				"name": "",
+				"type": "uint32"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_title",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "_content",
+				"type": "string"
+			}
+		],
+		"name": "createPost",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint32",
+				"name": "_commentId",
+				"type": "uint32"
+			}
+		],
+		"name": "deleteComment",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint32",
+				"name": "_postId",
+				"type": "uint32"
+			}
+		],
+		"name": "deletePost",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint32",
+				"name": "_commentId",
+				"type": "uint32"
+			},
+			{
+				"internalType": "string",
+				"name": "_newContent",
+				"type": "string"
+			}
+		],
+		"name": "editComment",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint32",
+				"name": "_postId",
+				"type": "uint32"
+			},
+			{
+				"internalType": "string",
+				"name": "_newTitle",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "_newContent",
+				"type": "string"
+			}
+		],
+		"name": "editPost",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint32",
+				"name": "_postId",
+				"type": "uint32"
+			}
+		],
+		"name": "getCommentsByPostId",
+		"outputs": [
+			{
+				"internalType": "uint32[]",
+				"name": "",
+				"type": "uint32[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "user",
+				"type": "address"
+			}
+		],
+		"name": "getNickname",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_author",
+				"type": "address"
+			}
+		],
+		"name": "getPostsByAuthor",
+		"outputs": [
+			{
+				"internalType": "uint32[]",
+				"name": "",
+				"type": "uint32[]"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getPostsCount",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "posts",
+		"outputs": [
+			{
+				"internalType": "uint32",
+				"name": "id",
+				"type": "uint32"
+			},
+			{
+				"internalType": "string",
+				"name": "title",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "content",
+				"type": "string"
+			},
+			{
+				"internalType": "address",
+				"name": "author",
+				"type": "address"
+			},
+			{
+				"internalType": "uint32",
+				"name": "createdAt",
+				"type": "uint32"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "",
+				"type": "address"
+			},
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"name": "postsByAuthor",
+		"outputs": [
+			{
+				"internalType": "uint32",
+				"name": "",
+				"type": "uint32"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_nickname",
+				"type": "string"
+			}
+		],
+		"name": "setNickname",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	}
+];
+    const contractAddress = '0x949419Fe28A47182c6037EF5705Ea8cAe31D06b6';
+    const blogContract = new web3.eth.Contract(contractABI, contractAddress);
+   
+    // blogContract.options.from = web3.utils.toChecksumAddress(account);
+
+    setNicknameButton.addEventListener('click', async () => {
+      const nickname = document.getElementById('nicknameInput').value;
+      if (nickname.trim() === '') {
+        alert('Nickname cannot be empty.');
+        return;
+      }
+
+      try {
+        await blogContract.methods.setNickname(nickname).send({ from: accounts[0] });
+        alert('Nickname set successfully!');
+        // Display blog section and posts list after setting nickname
+        blogSection.style.display = 'block';
+        postsSection.style.display = 'block';
+        await displayPosts(); // Call to display posts
+      } catch (error) {
+        console.error('Error setting nickname', error);
+        alert(`Error: ${error.message}`);
+      }
+    });
+
+    createPostButton.addEventListener('click', async () => {
+      const title = document.getElementById('postTitle').value;
+      const content = document.getElementById('postContent').value;
+      if (title.trim() === '' || content.trim() === '') {
+        alert('Post title and content cannot be empty.');
+        return;
+      }
+
+      try {
+        await blogContract.methods.createPost(title, content).send({ from: accounts[0] });
+        alert('Post created successfully!');
+        await displayPosts(); // Refresh the list of posts after creating a new one
+      } catch (error) {
+        console.error('Error creating post', error);
+        alert(`Error: ${error.message}`);
+      }
+    });
+
+    // 显示博客及其评论
+async function displayPosts() {
+  const postsCount = await blogContract.methods.getPostsCount().call();
+  const postsList = document.getElementById('postsList');
+  postsList.innerHTML = ''; // Clear the posts list
+
+  for (let i = parseInt(postsCount) - 1; i >= 0; i--) {
+    try {
+      let post = await blogContract.methods.posts(i).call();
+      if (post.title !== '') {
+        let createdAtTimestamp = new Date(Number(post.createdAt) * 1000).toLocaleString();
+        let postElement = document.createElement('div');
+        postElement.id = `post_${post.id}`; // 设置 post 元素的 ID
+        const account = accounts[0].toLowerCase();
+
+        // 获取昵称而不是使用地址
+        let postAuthorNickname = await blogContract.methods.getNickname(post.author).call();
+
+        let editButtonHTML = '';
+        if (post.author.toLowerCase() === account) {
+          editButtonHTML = `<button id='editPost_${post.id}'>Edit</button>`;
+        }
+
+        let commentsHTML = '<div class="commentsSection">';
+        let postComments = await blogContract.methods.getCommentsByPostId(post.id).call();
+        for (let commentId of postComments) {
+          let comment = await blogContract.methods.comments(commentId).call();
+          let commentDate = new Date(Number(comment.createdAt) * 1000).toLocaleString();
+          
+          // 获取昵称而不是使用地址
+          let commentAuthorNickname = await blogContract.methods.getNickname(comment.author).call();
+          
+          commentsHTML += `
+            <div class="comment" id="comment_${comment.id}">
+              <p>${comment.content}</p>
+              <small>Author: ${commentAuthorNickname || comment.author} - ${commentDate}</small>
+              ${comment.author.toLowerCase() === account.toLowerCase() ? `<button onclick="editComment(${comment.id})">Edit</button>` : ''}
+            </div>
+          `;
+        }
+        commentsHTML += '</div>';
+
+        postElement.innerHTML = `
+          <h3>${post.title}</h3>
+          <p>${post.content}</p>
+          <small>Author: ${postAuthorNickname || post.author} - ${createdAtTimestamp}</small>
+          ${editButtonHTML}
+          <div id='editSection_${post.id}' style='display: none;'>
+            <input type="text" id="editTitle_${post.id}" value="${post.title}" placeholder="Edit title here">
+            <textarea id="editContent_${post.id}" placeholder="Edit content here">${post.content}</textarea>
+            <button onclick='submitEdit(${post.id})'>Save</button>
+          </div>
+          <button onclick='addCommentSection(${post.id})'>Comment</button>
+          ${commentsHTML}
+        `;
+        postsList.appendChild(postElement);
+
+        if (post.author.toLowerCase() === account) {
+          document.getElementById(`editPost_${post.id}`).addEventListener('click', function() {
+            let editSection = document.getElementById(`editSection_${post.id}`);
+            editSection.style.display = editSection.style.display === 'none' ? 'block' : 'none';
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching post number ' + i.toString(), error);
+    }
+  }
+}
+
+
+
+      postsList.addEventListener('click', function (e) {
+        // 判断点击的元素是否为按钮
+        if (e.target.tagName === 'BUTTON') {
+          // 获取按钮所在帖子的id值
+          const postId = e.target.id;
+          const index = postId.split('_')[1]; // 从按钮id中提取出帖子的索引值
+          const editDiv = document.getElementById(`div_${index}`); // 获取对应的div元素
+          // 创建编辑框和按钮
+          editDiv && (editDiv.innerHTML = `
+            <input type="text" id="editTitle_${index}" placeholder="Edit title here">
+            <textarea id="editContent_${index}" placeholder="Edit content here"></textarea>
+            <button onclick="updatePost(${index})">确定</button>
+          `);
+          // 在这里使用 postId 的值进行处理
+          console.log(postId);
+
+        }
+      });
+
+    async function updatePost(postId) {
+  const title = document.getElementById(`editTitle_${postId}`).value;
+  const content = document.getElementById(`editContent_${postId}`).value;
+  try {
+    await blogContract.methods.editPost(postId, title, content).send({ from: accounts[0] });
+    alert('Post updated successfully!');
+    displayPosts(); // Refresh the list of posts
+  } catch (error) {
+    console.error('Error updating post:', error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+async function addComment(postId, content) {
+  if (content.trim() === '') {
+    alert('Comment content cannot be empty.');
+    return;
+  }
+
+  try {
+    await blogContract.methods.addComment(postId, content).send({ from: accounts[0] });
+    alert('Comment added successfully!');
+    displayPosts(); // Optionally refresh the list of posts/comments
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+    // Modified editPost function to correctly call the smart contract's editPost method
+    // 提交编辑
+async function submitEdit(postId) {
+    const newTitle = document.getElementById(`editTitle_${postId}`).value;
+    const newContent = document.getElementById(`editContent_${postId}`).value;
+
+    if (newTitle.trim() === '' || newContent.trim() === '') {
+        alert('Title and content cannot be empty.');
+        return;
+    }
+
+    try {
+        await blogContract.methods.editPost(postId, newTitle, newContent).send({ from: accounts[0] });
+        alert('Post updated successfully!');
+        displayPosts(); // Refresh the posts display
+    } catch (error) {
+        console.error('Error updating post:', error);
+        alert(`Error: ${error.message}`);
+    }
+}
+
+// 编辑评论
+function editComment(commentId) {
+  const commentElement = document.getElementById(`comment_${commentId}`);
+  const commentContentElement = commentElement.getElementsByTagName('p')[0];
+  const commentContent = commentContentElement.innerText;
+  commentElement.innerHTML = `
+    <textarea id="editCommentContent_${commentId}">${commentContent}</textarea>
+    <button onclick="submitCommentEdit(${commentId})">Save</button>
+  `;
+}
+
+// 提交评论的编辑
+async function submitCommentEdit(commentId) {
+  const newContent = document.getElementById(`editCommentContent_${commentId}`).value;
+  if (newContent.trim() === '') {
+    alert('Comment content cannot be empty.');
+    return;
+  }
+  try {
+    await blogContract.methods.editComment(commentId, newContent).send({ from: accounts[0] });
+    alert('Comment updated successfully!');
+    displayPosts(); // 刷新帖子和评论的显示
+  } catch (error) {
+    console.error('Error updating comment:', error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+// 添加评论的界面
+function addCommentSection(postId) {
+  const postElement = document.getElementById(`post_${postId}`);
+  if (!postElement) {
+    console.error(`Post element with id 'post_${postId}' not found.`);
+    return;
+  }
+
+  // 创建评论输入区域的HTML
+  const commentSection = document.createElement('div');
+  commentSection.innerHTML = `
+    <textarea id="newCommentContent_${postId}" placeholder="Add a comment..."></textarea>
+    <button onclick="addComment(${postId})">Submit Comment</button>
+  `;
+
+  // 添加评论输入区域到帖子元素中
+  postElement.appendChild(commentSection);
+}
+
+
+// 提交新评论
+async function submitNewComment(postId) {
+  const content = document.getElementById(`newCommentContent_${postId}`).value;
+  if (content.trim() === '') {
+    alert('Comment content cannot be empty.');
+    return;
+  }
+
+  try {
+    await blogContract.methods.addComment(postId, content).send({ from: accounts[0] });
+    alert('Comment added successfully!');
+    displayPosts(); // Optionally refresh the list of posts/comments
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+
+// 添加评论
+async function addComment(postId) {
+  const content = document.getElementById(`newCommentContent_${postId}`).value;
+  if (content.trim() === '') {
+    alert('Comment content cannot be empty.');
+    return;
+  }
+
+  try {
+    await blogContract.methods.addComment(postId, content).send({ from: accounts[0] });
+    alert('Comment added successfully!');
+    displayPosts(); // Optionally refresh the list of posts/comments
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+  </script>
+
+</body>
+
+</html>
